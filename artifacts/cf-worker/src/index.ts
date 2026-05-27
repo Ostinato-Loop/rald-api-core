@@ -22,12 +22,8 @@ export interface Env {
 
 const app = new Hono<{ Bindings: Env }>();
 
-/* ── GLOBAL MIDDLEWARE ─────────────────────────────────────────────────── */
-
 app.use("*", logger());
-
 app.use("*", secureHeaders());
-
 app.use(
   "*",
   cors({
@@ -36,7 +32,6 @@ app.use(
       "https://admin.rald.cloud",
       "https://control.rald.cloud",
       "https://sdk.rald.cloud",
-      // Dev
       "http://localhost:5173",
       "http://localhost:24793",
     ],
@@ -47,8 +42,6 @@ app.use(
   })
 );
 
-/* ── ROUTES ────────────────────────────────────────────────────────────── */
-
 app.route("/health", healthRoutes);
 app.route("/ready", healthRoutes);
 app.route("/api/health", healthRoutes);
@@ -57,7 +50,17 @@ app.route("/api/referrals", referralRoutes);
 app.route("/api/ecosystem", ecosystemRoutes);
 app.route("/api/agents", agentRoutes);
 
-/* ── ROOT ──────────────────────────────────────────────────────────────── */
+const versionHandler = (c: any) =>
+  c.json({
+    version: c.env.APP_VERSION ?? "1.0.0",
+    environment: c.env.ENVIRONMENT ?? "production",
+    service: "rald-api",
+    built: "RALD.cloud · Operated by LILCKY STUDIO LIMITED",
+    timestamp: new Date().toISOString(),
+  });
+
+app.get("/version", versionHandler);
+app.get("/api/version", versionHandler);
 
 app.get("/", (c) => {
   return c.json({
@@ -68,16 +71,6 @@ app.get("/", (c) => {
     docs: "https://api.rald.cloud/api/health",
   });
 });
-
-app.get("/version", (c) =>
-  c.json({
-    version: c.env.APP_VERSION ?? "1.0.0",
-    environment: c.env.ENVIRONMENT ?? "production",
-    built: "RALD.cloud · Operated by LILCKY STUDIO LIMITED",
-  })
-);
-
-/* ── 404 ───────────────────────────────────────────────────────────────── */
 
 app.notFound((c) =>
   c.json({ error: "not_found", path: c.req.path }, 404)
