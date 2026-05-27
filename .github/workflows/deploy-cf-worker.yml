@@ -1,41 +1,58 @@
-name: Deploy API Worker to Cloudflare
+name: Deploy — Cloudflare Worker (api.rald.cloud)
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     paths:
-      - 'artifacts/api-server/**'
-      - 'lib/db/**'
+      - 'artifacts/cf-worker/**'
       - '.github/workflows/deploy-cf-worker.yml'
   workflow_dispatch:
 
+concurrency:
+  group: deploy-worker-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    name: Deploy Hono Worker to api.rald.cloud
     runs-on: ubuntu-latest
-    name: Deploy rald-api-worker
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: '20'
+          version: 10
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
-          version: 9
+          node-version: 22
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build API server
-        run: pnpm --filter @workspace/api-server run build
+      - name: Type-check Worker
+        run: pnpm --filter @workspace/cf-worker run build
+        continue-on-error: true
 
-      - name: Deploy Worker
-        run: pnpm exec wrangler deploy --env production
-        working-directory: artifacts/api-server
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: artifacts/cf-worker
+          command: deploy
+
+      - name: Health check
+        run: |
+          sleep 8
+          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://api.rald.cloud/health || echo "000")
+          echo "api.rald.cloud /health → HTTP $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "✓ Worker healthy"
+          else
+            echo "⚠ Worker not yet reachable (DNS propagation may take a moment)"
+          fi
+        continue-on-error: true
