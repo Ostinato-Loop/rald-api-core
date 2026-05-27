@@ -1,0 +1,22 @@
+name = "rald-api-worker"
+main = "dist/worker.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "rald-api-worker"
+route = { pattern = "api.rald.cloud/*", zone_name = "rald.cloud" }
+
+[env.staging]
+name = "rald-api-worker-staging"
+
+[build]
+command = "pnpm install && pnpm run build:worker"
+
+[vars]
+NODE_ENV = "production"
+
+[[unsafe.bindings]]
+name = "ASSETS"
+type = "plain_text"
+text = ""
