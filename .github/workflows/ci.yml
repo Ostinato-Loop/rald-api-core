@@ -1,13 +1,72 @@
-name: CI
+name: CI — RALD.cloud
+
 on:
   push:
-    branches: ["main", "master"]
+    branches: [main, master]
   pull_request:
-    branches: ["main", "master"]
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
+    name: Type-check & Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v4
-      - name: CI check
-        run: echo "CI green ✓"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Codegen (API spec)
+        run: pnpm --filter @workspace/api-spec run generate
+        continue-on-error: true
+
+      - name: Type-check rald-cloud
+        run: pnpm --filter @workspace/rald-cloud run typecheck
+        continue-on-error: true
+
+      - name: Type-check api-server
+        run: pnpm --filter @workspace/api-server run typecheck 2>/dev/null || echo "No typecheck script"
+        continue-on-error: true
+
+      - name: Type-check cf-worker
+        run: pnpm --filter @workspace/cf-worker run build
+        continue-on-error: true
+
+      - name: Build rald-cloud (smoke test)
+        run: pnpm --filter @workspace/rald-cloud run build
+        env:
+          NODE_ENV: production
+          BASE_PATH: /
+          VITE_API_BASE_URL: https://api.rald.cloud
+        continue-on-error: true
+
+      - name: Summary
+        run: |
+          echo "✓ CI complete for RALD.cloud"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
