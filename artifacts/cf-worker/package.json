@@ -1,0 +1,22 @@
+{
+  "name": "@workspace/cf-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "build": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.9",
+    "hono": "^4.7.11",
+    "nanoid": "^5.1.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250526.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.18.0"
+  }
+}
