@@ -42,6 +42,8 @@ app.use(
   })
 );
 
+/* ── ROUTES ────────────────────────────────────────────────────────────── */
+
 app.route("/health", healthRoutes);
 app.route("/ready", healthRoutes);
 app.route("/api/health", healthRoutes);
@@ -49,6 +51,8 @@ app.route("/api/auth", authRoutes);
 app.route("/api/referrals", referralRoutes);
 app.route("/api/ecosystem", ecosystemRoutes);
 app.route("/api/agents", agentRoutes);
+
+/* ── TOP-LEVEL ALIASES ─────────────────────────────────────────────────── */
 
 const versionHandler = (c: any) =>
   c.json({
@@ -59,8 +63,21 @@ const versionHandler = (c: any) =>
     timestamp: new Date().toISOString(),
   });
 
+const metricsHandler = (c: any) =>
+  c.text(
+    [
+      "# RALD API Metrics",
+      `rald_api_up{env="${c.env.ENVIRONMENT ?? "production"}"} 1`,
+      `rald_api_version{version="${c.env.APP_VERSION ?? "1.0.0"}"} 1`,
+    ].join("\n"),
+    200,
+    { "Content-Type": "text/plain; version=0.0.4; charset=utf-8" }
+  );
+
 app.get("/version", versionHandler);
 app.get("/api/version", versionHandler);
+app.get("/metrics", metricsHandler);
+app.get("/api/metrics", metricsHandler);
 
 app.get("/", (c) => {
   return c.json({
@@ -71,6 +88,8 @@ app.get("/", (c) => {
     docs: "https://api.rald.cloud/api/health",
   });
 });
+
+/* ── FALLBACKS ─────────────────────────────────────────────────────────── */
 
 app.notFound((c) =>
   c.json({ error: "not_found", path: c.req.path }, 404)
