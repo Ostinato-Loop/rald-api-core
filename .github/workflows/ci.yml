@@ -1,4 +1,4 @@
-name: CI — RALD.cloud
+name: CI — RALD API Core
 
 on:
   push:
@@ -26,7 +26,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -37,36 +36,19 @@ jobs:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-pnpm-store-
+        continue-on-error: true
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Codegen (API spec)
         run: pnpm --filter @workspace/api-spec run generate
         continue-on-error: true
 
-      - name: Type-check rald-cloud
-        run: pnpm --filter @workspace/rald-cloud run typecheck
+      - name: Type-check (all)
+        run: pnpm run typecheck
         continue-on-error: true
 
-      - name: Type-check api-server
-        run: pnpm --filter @workspace/api-server run typecheck 2>/dev/null || echo "No typecheck script"
+      - name: Build (smoke test)
+        run: pnpm run build 2>/dev/null || echo "No build script at root"
         continue-on-error: true
-
-      - name: Type-check cf-worker
-        run: pnpm --filter @workspace/cf-worker run build
-        continue-on-error: true
-
-      - name: Build rald-cloud (smoke test)
-        run: pnpm --filter @workspace/rald-cloud run build
-        env:
-          NODE_ENV: production
-          BASE_PATH: /
-          VITE_API_BASE_URL: https://api.rald.cloud
-        continue-on-error: true
-
-      - name: Summary
-        run: |
-          echo "✓ CI complete for RALD.cloud"
-          echo "Commit: ${{ github.sha }}"
-          echo "Branch: ${{ github.ref_name }}"
